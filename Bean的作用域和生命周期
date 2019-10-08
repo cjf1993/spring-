@@ -1,0 +1,160 @@
+1.Bean的作用域
+singleton：单例Bean只在容器中存在一个实例，在Spring内部通过HashMap来维护单例bean的缓存。
+prototype：每次索取bean时都会创建一个全新的Bean。
+request：每次请求都会创建一个全新Bean，该类型作用于Web类型的Spring容器。
+session：每个会话创建一个全新Bean，该类型作用于Web类型的Spring容器。
+globalSession：类似于session作用域，只是其用于portlet环境的web应用。如果在非portlet环境将视为session作用域。
+
+总结：以上就是spring中bean的作用域，其中singleton，prototype属于Spring bean的基本作作用域，
+request，session，globalSession属于web应用环境的作用域，必须有web应用环境的支持。
+
+2.Bean的生命周期
+(1)IoC容器启动。
+(2)实例化bean。
+(3)如果Bean实现了BeanNameAware接口，则调用setBeanName(String name)返回beanName，
+   该方法不是设置beanName，而只是让Bean获取自己在BeanFactory配置中的名字。
+(4)如果Bean实现BeanFactoryAware接口，会回调该接口的setBeanFactory(BeanFactory beanFactory)方法，
+   传入该Bean的BeanFactory，这样该Bean就获得了自己所在的BeanFactory。
+(5)如果Bean实现了ApplicationContextAware接口，则调用该接口的setApplicationContext(ApplicationContext applicationContext)方法，
+设置applicationContext。
+(6)如果有Bean实现了BeanPostProcessor接口，则调用该接口的postProcessBeforeInitialzation(Object bean，String beanName)方法，
+将此BeanPostProcessor应用于给定的新bean实例。
+(7)如果Bean实现了InitializingBean接口，则会回调该接口的afterPropertiesSet()方法。
+(8)如果Bean配置了init-method方法，则会执行init-method配置的方法。
+(9)如果Bean实现了BeanPostProcessor接口，则会回调该接口的postProcessAfterInitialization(Object bean，String beanName)方法。
+(10)到此为止，spring中的bean已经可以使用了，这里又涉及到了bean的作用域问题，对于singleton类型的bean，
+    Spring会将其缓存;对于prototype类型的bean，不缓存，每次都创建新的bean的实例。
+(11)容器关，如果Bean实现了DisposableBean接口，则会回调该接口的destroy()方法销毁bean。
+(12)如果用户配置了定destroy-method，则调用自定义方法销毁bean。
+
+
+package com.lyc.cn.v2.day01.lifecycle;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.*;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
+public class LifeCycleBean implements BeanNameAware,BeanFactoryAware, ApplicationContextAware,
+InitializingBean,DisposableBean {
+
+    // 姓名
+    private String name;
+    // 年龄
+    private int age;
+
+    @Override
+    public void setBeanName(String name) {
+        System.out.println("01-->BeanNameAware接口被调用了, 获取到的beanName:" + name);
+    }
+
+    @Override
+    public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+        System.out.println("02-->BeanFactoryAware接口被调用了");
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        System.out.println("03-->ApplicationContextAware接口被调用了");
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        System.out.println("05-->InitializingBean接口被调用了");
+    }
+
+    public void myInit() {
+        System.out.println("06-->myInit方法被调用了");
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        System.out.println("09-->DisposableBean接口被调用了");
+    }
+
+    public void myDestroy() {
+        System.out.println("10-->自定义destroy-method方法被调动了");
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "MyLifeCycleBean{" + "name='" + name + '\'' + ", age=" + age + '}';
+    }
+}
+package com.lyc.cn.v2.day01.lifecycle;
+
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+
+public class LifeCycleBeanPostProcessor implements BeanPostProcessor {
+
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        if (bean instanceof LifeCycleBean) {
+            System.out.println("04-->调用postProcessBeforeInitialization方法, 获取到的beanName: " + beanName);
+            ((LifeCycleBean) bean).setName("李四");
+        }
+        return bean;
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if (bean instanceof LifeCycleBean) {
+            System.out.println("07-->调用postProcessAfterInitialization, 获取到的beanName: " + beanName);
+            ((LifeCycleBean) bean).setAge(30);
+        }
+        return bean;
+    }
+
+}
+
+<!-- ====================生命周期==================== -->
+<!--注意：这里配置的name是张三，age是25,我们会通过beanPostProcessor来修改nage和age -->
+<bean id="myLifeCycleBean" class="com.lyc.cn.v2.day01.lifecycle.LifeCycleBean"
+      destroy-method="myDestroy"
+      init-method="myInit">
+    <property name="name" value="张三"/>
+    <property name="age" value="25"/>
+</bean>
+<bean id="myBeanPostProcessor" class="com.lyc.cn.v2.day01.lifecycle.LifeCycleBeanPostProcessor"/>
+
+测试
+@Test
+public void test13() {
+    // 生命周期测试
+    ApplicationContext applicationContext = new ClassPathXmlApplicationContext("v2/day01.xml");
+    LifeCycleBean myLifeCycleBean = applicationContext.getBean("myLifeCycleBean", LifeCycleBean.class);
+    System.out.println("08-->bean可以被使用了, beanInfo: " + myLifeCycleBean.toString());
+    ((ClassPathXmlApplicationContext) applicationContext).destroy();
+}
+
+结果
+========测试方法开始=======
+
+01-->BeanNameAware接口被调用了, 获取到的beanName:myLifeCycleBean
+02-->BeanFactoryAware接口被调用了
+03-->ApplicationContextAware接口被调用了
+04-->调用postProcessBeforeInitialization方法, 获取到的beanName: myLifeCycleBean
+05-->InitializingBean接口被调用了
+06-->myInit方法被调用了
+07-->调用postProcessAfterInitialization, 获取到的beanName: myLifeCycleBean
+08-->bean可以被使用了, beanInfo: MyLifeCycleBean{name='李四', age=30}
+09-->DisposableBean接口被调用了
+10-->自定义destroy-method方法被调动了
+
+========测试方法结束=======

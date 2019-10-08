@@ -1,0 +1,87 @@
+Spring实例化Bean的方式大致上可以分为三种，(构造函数实例化，工厂方法实例化，静态工厂方法实例化)。
+
+1.构造函数实例化（无参构造函数和有参构造函数）
+*******************Java代码******************************
+package com.lyc.cn.v2.day01;
+public class Dog {    
+    private String name;
+    private int age;
+    
+    public Dog() {}   //默认构造函数
+    
+    public Dog(String name, int age) {  //有参构造
+        this.name = name;
+        this.age = age;
+    }
+
+    public void sayHello() {
+        System.out.println("大家好, 我叫" + getName() + ", 我今年" + getAge() + "岁了");
+    }
+
+    //getter、setter
+}
+************************xml配置*********************************
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd" profile="dev">
+
+    <!-- ====================实例化bean的方式Begin==================== -->
+    <!-- 默认构造实例化 -->
+    <bean id="dog1" class="com.lyc.cn.v2.day01.Dog"/>
+
+    <!-- 指定构造器实例化 -->
+    <bean id="dog2" class="com.lyc.cn.v2.day01.Dog">
+        <!-- 指定构造器参数 index对应构造器中参数的位置 -->
+        <!-- 也可以通过指定参数类型，指定参数名称来注入属性-->
+        <constructor-arg index="0" value="小明"/>
+        <constructor-arg index="1" value="3"/>
+    </bean>
+    <!-- ====================实例化bean的方式End==================== -->
+</beans>
+
+2.工厂方法
+package com.lyc.cn.v2.day01;
+/**
+ * 工厂方法实例化
+ */
+public class DogFactory {
+
+    public Dog newInstance(String name, int age) {
+        return new Dog(name, age);
+    }
+}
+****************<!-- 实例工厂方法实例化 -->***************************
+<bean id="dogFactory" class="com.lyc.cn.v2.day01.DogFactory"/>
+<!-- 不能指定class属性,此时必须使用factory-bean属性来指定工厂Bean,factory-method属性指定实例化Bean的方法 -->
+<bean id="dog4" factory-bean="dogFactory" factory-method="newInstance">
+    <constructor-arg index="0" value="小明"/>
+    <constructor-arg index="1" value="3"/>
+</bean>
+
+3.静态工厂方法
+
+package com.lyc.cn.v2.day01;
+
+/**
+ * 静态工厂实例化
+ * @author LiYanChao
+ * @create: 2018-09-07 23:40
+ */
+public class DogStaticFactory {
+
+    // 静态工厂方法
+    public static Dog newInstance(String name, int age) {
+        // 返回需要的Bean实例
+        return new Dog(name, age);
+    }
+}
+
+******************<!-- 静态工厂方法实例化 -->*****************
+<bean id="dog3" class="com.lyc.cn.v2.day01.DogStaticFactory" factory-method="newInstance">
+    <!-- 指定构造器参数 index对应构造器中参数的位置 -->
+    <constructor-arg index="0" value="小明"/>
+    <constructor-arg index="1" value="3"/>
+</bean>
+

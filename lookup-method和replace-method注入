@@ -1,0 +1,144 @@
+Spring的方法注入可分为两种
+
+查找方法注入：用于注入方法返回结果，也就是说能通过配置方式替换方法返回结果。即我们通常所说的lookup-method注入。
+替换方法注入：可以实现方法主体或返回结果的替换，即我们通常所说的replaced-method注入。
+
+1. lookup-method注入
+
+单例模式的bean只会被创建一次，IoC容器会缓存该bean实例以供下次使用；
+原型模式的bean每次都会创建一个全新的bean，IoC容器不会缓存该bean的实例。
+那么如果现在有一个单例模式的bean引用了一个原型模式的bean呢？
+如果无特殊处理，则被引用的原型模式的bean也会被缓存，这就违背了原型模式的初衷，这时使用lookup-method注入可以解决该问题。
+
+package com.lyc.cn.v2.day01.method.lookupMethod;
+
+public abstract class Car {
+
+    //用于lookup-method注入
+    public abstract Taxi createTaxi();
+
+    private Taxi taxi;
+
+    public Taxi getTaxi() {
+        return taxi;
+    }
+    
+    //setter注入
+    public void setTaxi(Taxi taxi) {
+        this.taxi = taxi;
+    }
+}
+
+package com.lyc.cn.v2.day01.method.lookupMethod;
+public class Taxi {
+    public void say() {
+        System.out.println("I am a Taxi...");
+    }
+}
+
+<!-- ====================lookup-method属性注入==================== -->
+<bean id="car" class="com.lyc.cn.v2.day01.method.lookupMethod.Car">
+    <!--注意:下面这句配置和lookup-method注入没有关系,我们只是为了出于演示和说明配置该bean-->
+    <property name="taxi" ref="taxi"/>
+    <!--lookup-method注入-->
+    <lookup-method name="createTaxi" bean="taxi"/>
+</bean>
+<bean id="taxi" class="com.lyc.cn.v2.day01.method.lookupMethod.Taxi" scope="prototype"/>
+
+
+<!-- ====================replace-method属性注入==================== -->
+<bean id="dogReplaceMethod" class="com.lyc.cn.v2.day01.method.replaceMethod.ReplaceDog"/>
+<bean id="originalDogReplaceMethod" class="com.lyc.cn.v2.day01.method.replaceMethod.OriginalDog">
+    <replaced-method name="sayHello" replacer="dogReplaceMethod">
+        <arg-type match="java.lang.String"></arg-type>
+    </replaced-method>
+</bean>
+
+测试
+@Test
+public void test8() {
+    // 测试lookup-method注入
+    Car car1 = xmlBeanFactory.getBean("car", Car.class);
+    Car car2 = xmlBeanFactory.getBean("car", Car.class);
+
+    System.out.println("Car:singleton,所以animal1==animal2应该为" + (car1 == car2));
+
+    Taxi dog1 = car1.getTaxi();
+    Taxi dog2 = car2.getTaxi();
+    System.out.println("Taxi:prototype,Car:singleton,未使用lookup-method注入所以dog1==dog2应该为" + (dog1 == dog2));
+
+    //注意:这里是通过createDog()方法获取
+    Taxi taxi3 = car1.createTaxi();
+    Taxi taxi4 = car2.createTaxi();
+    System.out.println("Taxi:prototype,Car:singleton,使用了lookup-method注入所以dog3==dog4应该为" + (taxi3 == taxi4));
+
+}
+结果
+========测试方法开始=======
+
+Car:singleton,所以animal1==animal2应该为true
+Taxi:prototype,Car:singleton,未使用lookup-method注入所以dog1==dog2应该为true
+Taxi:prototype,Car:singleton,使用了lookup-method注入所以dog3==dog4应该为false
+
+========测试方法结束=======
+
+分析
+未使用lookup-method注入时，通过Car的实例获取的Taxi实例是被缓存的（配置文件中Taxi的scope="prototype"）；
+而使用了lookup-method注入时，通过Car的实例获取的Taxi实例则是每次都是新建的，不是被缓存的，这也就达到了我们的目的。
+
+2. replaced-method注入
+主要作用就是替换方法体及其返回值，其实现也比较简单
+
+package com.lyc.cn.v2.day01.method.replaceMethod;
+
+public class OriginalDog {
+    public void sayHello() {
+        System.out.println("Hello,I am a black dog...");
+    }
+
+    public void sayHello(String name) {
+        System.out.println("Hello,I am a black dog, my name is " + name);
+    }
+}
+
+package com.lyc.cn.v2.day01.method.replaceMethod;
+import org.springframework.beans.factory.support.MethodReplacer;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+
+public class ReplaceDog implements MethodReplacer {
+    @Override
+    public Object reimplement(Object obj, Method method, Object[] args) throws Throwable {
+        System.out.println("Hello, I am a white dog...");
+
+        Arrays.stream(args).forEach(str -> System.out.println("参数:" + str));
+        return obj;
+    }
+}
+
+replace-method注入需实现MethodReplacer接口，并重写reimplement方法。
+
+<!-- ====================replace-method属性注入==================== -->
+<bean id="dogReplaceMethod" class="com.lyc.cn.v2.day01.method.replaceMethod.ReplaceDog"/>
+<bean id="originalDogReplaceMethod" class="com.lyc.cn.v2.day01.method.replaceMethod.OriginalDog">
+    <replaced-method name="sayHello" replacer="dogReplaceMethod">
+        <arg-type match="java.lang.String"></arg-type>
+    </replaced-method>
+</bean>
+测试
+@Test
+public void test9() {
+    //测试replace-method注入
+    OriginalDog originalDog = xmlBeanFactory.getBean("originalDogReplaceMethod", OriginalDog.class);
+    originalDog.sayHello("输出结果已经被替换了。。。");
+}
+结果
+========测试方法开始=======
+
+Hello, I am a white dog...
+参数:输出结果已经被替换了。。。
+
+========测试方法结束=======
+分析
+OriginalDog类的sayHello方法输出的是Hello,I am a black dog, my name is xxx，
+但是通过replace-method注入，成功的将其替换成reimplement方法。

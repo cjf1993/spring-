@@ -1,0 +1,87 @@
+1. 内部Bean（inner bean）
+当希望一个bean只被某一个类使用时，我们可以使用内部bean。内部bean此时作为某一个类的属性，只能通过该类实例化。
+
+package com.lyc.cn.v2.day01.inner;
+
+public class Outer {
+    /** 姓名 **/
+    private String name;
+
+    /** 年龄 **/
+    private int age;
+
+    /** 内部bean **/
+    private Inner inner;
+
+   //getter、setter
+
+    public void sayHello() {
+        System.out.println("outer-->name:" + name + ",age:" + age);
+        System.out.println("inner-->name:" + inner.getName() + ",age:" + inner.getAge());
+    }
+}
+
+package com.lyc.cn.v2.day01.inner;
+public class Inner {
+
+    private String name;
+    private int age;
+  //gettter、setter
+   
+}
+
+***************<!--InnerBean-->**************************
+<bean id="outer" class="com.lyc.cn.v2.day01.inner.Outer">
+    <property name="name" value="我是一个外部bean"></property>
+    <property name="age" value="20"></property>
+    <!--注意这里是property属性，不是beanName-->
+    <property name="inner">
+        <bean class="com.lyc.cn.v2.day01.inner.Inner">
+            <property name="name" value="我是一个内部bean"></property>
+            <property name="age" value="10"></property>
+        </bean>
+    </property>
+</bean>
+
+
+2.父子bean
+封装、继承、多态是java的面向对象的基本元素，同样，Spring中的bean也可以存在继承关系。
+子bean必须与父bean保持兼容，也就是说子bean中必须有父bean定义的所有属性
+父bean必须是抽象bean或者定义lazy-init=true也就是不让bean工厂实例化该bean abstract="true" Spring不会实例化该bean
+
+package com.lyc.cn.v2.day01.parent;
+/**
+ * 定义父bean
+ */
+public class Father {
+    private String name;
+    private int age;
+    //getter、setter
+}
+
+package com.lyc.cn.v2.day01.parent;
+/**
+ * 定义子bean,注意这里SunBean和ParentBean之间无继承关系,
+ * 而是通过配置文件维护其父子关系
+ */
+public class Sun {
+ 
+    private String name;
+    private int age;
+  //getter、setter
+
+    public void sayHello() {
+        System.out.println("nage: " + name + "， age: " + age);
+    }
+}
+
+=======================父子bean===========================================
+<!-- 子bean必须与父bean保持兼容，也就是说子bean中必须有父bean定义的所有属性 -->
+<!-- 父bean必须是抽象bean或者定义lazy-init=true也就是不让bean工厂实例化该bean abstract="true" Spring不会实例化该bean-->
+<bean id="father" class="com.lyc.cn.v2.day01.parent.Father" abstract="true">
+    <property name="name" value="father name"/>
+</bean>
+<bean id="sun" class="com.lyc.cn.v2.day01.parent.Sun" parent="father">
+    <property name="name" value="sun name"></property>
+    <property name="age" value="18"/>
+</bean>
